@@ -50,6 +50,10 @@ func RunMigrations(cfg MigrationConfig) error {
 	// We set uri based on engine
 	uri = cfg.URI
 	switch cfg.Engine {
+	case "dynamodb":
+		// TODO: just validate that table exists and schema is correct
+		return nil
+	// NUMARIS: We should not use these cases:
 	case "memory":
 		log.Info("no migrations to run for `memory` datastore")
 		return nil

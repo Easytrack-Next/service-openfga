@@ -12,6 +12,8 @@
             "program": "${workspaceFolder}/cmd/openfga/main.go",
             "args": ["run"],
             "env": {
+                "OPENFGA_DATASTORE_ENGINE": "dynamodb",
+                "OPENFGA_DATASTORE_URI": "https://dynamodb.us-west-2.amazonaws.com"
             }
         }
     ]

@@ -54,7 +54,6 @@ import (
 	"github.com/openfga/openfga/internal/build"
 	authnmw "github.com/openfga/openfga/internal/middleware/authn"
 	"github.com/openfga/openfga/internal/planner"
-	"github.com/openfga/openfga/pkg/encoder"
 	"github.com/openfga/openfga/pkg/gateway"
 	"github.com/openfga/openfga/pkg/logger"
 	"github.com/openfga/openfga/pkg/middleware"
@@ -69,11 +68,7 @@ import (
 	serverErrors "github.com/openfga/openfga/pkg/server/errors"
 	"github.com/openfga/openfga/pkg/server/health"
 	"github.com/openfga/openfga/pkg/storage"
-	"github.com/openfga/openfga/pkg/storage/memory"
-	"github.com/openfga/openfga/pkg/storage/mysql"
-	"github.com/openfga/openfga/pkg/storage/postgres"
-	"github.com/openfga/openfga/pkg/storage/sqlcommon"
-	"github.com/openfga/openfga/pkg/storage/sqlite"
+	"github.com/openfga/openfga/pkg/storage/dynamo"
 	"github.com/openfga/openfga/pkg/telemetry"
 )
 
@@ -410,65 +405,24 @@ func (s *ServerContext) telemetryConfig(config *serverconfig.Config) func() erro
 	}
 }
 
-func (s *ServerContext) datastoreConfig(config *serverconfig.Config) (storage.OpenFGADatastore, encoder.ContinuationTokenSerializer, error) {
-	// SQL Token Serializer by default
-	tokenSerializer := sqlcommon.NewSQLContinuationTokenSerializer()
-	datastoreOptions := []sqlcommon.DatastoreOption{
-		sqlcommon.WithSecondaryURI(config.Datastore.SecondaryURI),
-		sqlcommon.WithUsername(config.Datastore.Username),
-		sqlcommon.WithPassword(config.Datastore.Password),
-		sqlcommon.WithSecondaryUsername(config.Datastore.SecondaryUsername),
-		sqlcommon.WithSecondaryPassword(config.Datastore.SecondaryPassword),
-		sqlcommon.WithLogger(s.Logger),
-		sqlcommon.WithMaxTuplesPerWrite(config.MaxTuplesPerWrite),
-		sqlcommon.WithMaxTypesPerAuthorizationModel(config.MaxTypesPerAuthorizationModel),
-		sqlcommon.WithMaxOpenConns(config.Datastore.MaxOpenConns),
-		sqlcommon.WithMinOpenConns(config.Datastore.MinOpenConns),
-		sqlcommon.WithMaxIdleConns(config.Datastore.MaxIdleConns),
-		sqlcommon.WithMinIdleConns(config.Datastore.MinIdleConns),
-		sqlcommon.WithConnMaxIdleTime(config.Datastore.ConnMaxIdleTime),
-		sqlcommon.WithConnMaxLifetime(config.Datastore.ConnMaxLifetime),
-	}
-
-	if config.Datastore.Metrics.Enabled {
-		datastoreOptions = append(datastoreOptions, sqlcommon.WithMetrics())
-	}
-
-	dsCfg := sqlcommon.NewConfig(datastoreOptions...)
-
-	var datastore storage.OpenFGADatastore
-	var err error
-	switch config.Datastore.Engine {
-	case "memory":
-		// override for "memory" datastore
-		tokenSerializer = encoder.NewStringContinuationTokenSerializer()
-		opts := []memory.StorageOption{
-			memory.WithMaxTypesPerAuthorizationModel(config.MaxTypesPerAuthorizationModel),
-			memory.WithMaxTuplesPerWrite(config.MaxTuplesPerWrite),
-		}
-		datastore = memory.New(opts...)
-	case "mysql":
-		datastore, err = mysql.New(config.Datastore.URI, dsCfg)
-		if err != nil {
-			return nil, nil, fmt.Errorf("initialize mysql datastore: %w", err)
-		}
-	case "postgres":
-		datastore, err = postgres.New(config.Datastore.URI, dsCfg)
-		if err != nil {
-			return nil, nil, fmt.Errorf("initialize postgres datastore: %w", err)
-		}
-	case "sqlite":
-		datastore, err = sqlite.New(config.Datastore.URI, dsCfg)
-		if err != nil {
-			return nil, nil, fmt.Errorf("initialize sqlite datastore: %w", err)
-		}
-	default:
-		return nil, nil, fmt.Errorf("storage engine '%s' is unsupported", config.Datastore.Engine)
-	}
-
+func (s *ServerContext) datastoreConfig(config *serverconfig.Config) (storage.OpenFGADatastore, error) {
 	s.Logger.Info(fmt.Sprintf("using '%v' storage engine", config.Datastore.Engine))
 
-	return datastore, tokenSerializer, nil
+	dynamoOptions := []dynamo.DatastoreOption{
+		dynamo.WithMaxTuplesPerWrite(config.MaxTuplesPerWrite),
+		dynamo.WithMaxTypesPerAuthorizationModel(config.MaxTypesPerAuthorizationModel),
+		dynamo.WithLogger(s.Logger),
+		dynamo.WithTableName(config.TableName),
+	}
+
+	dynamoConfig := dynamo.NewConfig(dynamoOptions...)
+
+	datastore, err := dynamo.New(config.Datastore.URI, dynamoConfig)
+	if err != nil {
+		return nil, fmt.Errorf("initialize dynamodb datastore: %w", err)
+	}
+
+	return datastore, nil
 }
 
 func (s *ServerContext) authenticatorConfig(config *serverconfig.Config) (authn.Authenticator, error) {
@@ -509,7 +463,7 @@ func (s *ServerContext) Run(ctx context.Context, config *serverconfig.Config) er
 	var experimentals []string
 	experimentals = append(experimentals, config.Experimentals...)
 
-	datastore, continuationTokenSerializer, err := s.datastoreConfig(config)
+	datastore,  err := s.datastoreConfig(config)
 	if err != nil {
 		return err
 	}
@@ -664,7 +618,6 @@ func (s *ServerContext) Run(ctx context.Context, config *serverconfig.Config) er
 
 	svr := server.MustNewServerWithOpts(
 		server.WithDatastore(datastore),
-		server.WithContinuationTokenSerializer(continuationTokenSerializer),
 		server.WithAuthorizationModelCacheSize(config.Datastore.MaxCacheSize),
 		server.WithLogger(s.Logger),
 		server.WithTransport(gateway.NewRPCTransport(s.Logger)),

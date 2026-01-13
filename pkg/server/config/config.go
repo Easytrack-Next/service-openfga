@@ -21,7 +21,7 @@ const (
 	DefaultChangelogHorizonOffset           = 0
 	DefaultResolveNodeLimit                 = 25
 	DefaultResolveNodeBreadthLimit          = 10
-	DefaultListObjectsDeadline              = 3 * time.Second
+	DefaultListObjectsDeadline              = 30000 * time.Second
 	DefaultListObjectsMaxResults            = 1000
 	DefaultMaxConcurrentReadsForCheck       = math.MaxUint32
 	DefaultMaxConcurrentReadsForListObjects = math.MaxUint32
@@ -80,7 +80,7 @@ const (
 	DefaultListUsersDispatchThrottlingDefaultThreshold = 100
 	DefaultListUsersDispatchThrottlingMaxThreshold     = 0 // 0 means use the default threshold as max
 
-	DefaultRequestTimeout     = 3 * time.Second
+	DefaultRequestTimeout     = 30000 * time.Second
 	additionalUpstreamTimeout = 3 * time.Second
 
 	DefaultSharedIteratorEnabled          = false
@@ -416,6 +416,9 @@ type Config struct {
 
 	RequestDurationDatastoreQueryCountBuckets []string
 	RequestDurationDispatchCountBuckets       []string
+
+	// Dynamodb
+	TableName                                 string
 }
 
 func (cfg *Config) Verify() error {
@@ -821,6 +824,7 @@ func DefaultConfig() *Config {
 			EvictionThreshold: DefaultPlannerEvictionThreshold,
 			CleanupInterval:   DefaultPlannerCleanupInterval,
 		},
+		TableName: "aksel_test_openfga",
 	}
 }
 

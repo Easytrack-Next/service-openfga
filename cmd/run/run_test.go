@@ -1636,16 +1636,14 @@ func TestServerContext_datastoreConfig(t *testing.T) {
 			s := &ServerContext{
 				Logger: logger.NewNoopLogger(),
 			}
-			datastore, serializer, err := s.datastoreConfig(tt.config)
+			datastore, err := s.datastoreConfig(tt.config)
 			if tt.wantErr != nil {
 				require.Error(t, err)
 				assert.Nil(t, datastore)
-				assert.Nil(t, serializer)
 				assert.ErrorContains(t, err, tt.wantErr.Error())
 			} else {
 				require.NoError(t, err)
 				assert.IsType(t, tt.wantDSType, datastore)
-				assert.Equal(t, tt.wantSerializer, serializer)
 			}
 		})
 	}
