@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER }}
     steps:
       - name: Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -25,7 +25,7 @@ jobs:
           args: -v -c .golangci.yaml
 
   tests:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER }}
     timeout-minutes: 15
     steps:
       - name: Checkout code
@@ -57,7 +57,7 @@ jobs:
 
   goreleaser-dryrun:
     name: Dry Run GoReleaser
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER }}
     steps:
       - name: Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -86,7 +86,7 @@ jobs:
           args: release --clean --config .goreleaser.yaml --snapshot --skip sign,publish,announce
 
   govulncheck:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER }}
     timeout-minutes: 15
     steps:
       - name: Checkout code
@@ -98,7 +98,7 @@ jobs:
           repo-checkout: false
 
   docker-tests:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER }}
     timeout-minutes: 15
     steps:
       - name: Checkout code
@@ -131,7 +131,7 @@ jobs:
         run: make test-docker
 
   go-bench:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER }}
     timeout-minutes: 15
     steps:
       - name: Checkout code
